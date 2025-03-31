@@ -1,0 +1,32 @@
+const express =require ('express');
+const mongoose =require ('mongoose')
+require('dotenv').config();
+const router = require('./src/routes/allRoutes')
+const app = express();
+const cors = require("cors");
+const port = process.env.PORT || 7777;
+const logger = require("./src/helper/logger"); 
+
+mongoose.connect(process.env.DBURL, {
+    maxPoolSize: 10,
+    serverselectiontimeoutMS: 3000
+})
+.then(() => logger.info("🚀 Successfully Connected to MongoDB"))
+.catch(err => logger.error(`MongoDB Connection Error: ${err.message}`));
+
+
+app.use(cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+}));
+app.use(express.json());
+app.use(router);
+
+app.get('/', (req, res) => {
+    res.send(' ***🔥🔥 Hey ramya.. You server is running 🔥🔥*** ')
+  })
+
+app.listen(port, ()=>{
+    logger.info(`🚀 Server is running on port ${port}`);
+});
+
