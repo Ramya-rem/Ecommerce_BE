@@ -1,4 +1,3 @@
-const express = require('express');
 const Product = require('../model/productModel');
 
 // Add Product
@@ -22,14 +21,22 @@ const addProduct = async (req, res) => {
 };
 
 
-// Get Products
-const getallProduct= async (req, res) => {
+const getallProduct = async (req, res) => {
     try {
-        const products = await Product.find();
+        const { category } = req.query;
+        let filter = {};
+
+        if (category) {
+            filter.category = { $regex: category, $options: 'i' }; // exact match, case-insensitive
+        }
+
+        const products = await Product.find(filter);
         res.json(products);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 };
+
+
 
 module.exports = { addProduct,  getallProduct};
