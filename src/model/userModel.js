@@ -17,6 +17,23 @@ const userSchema = new mongoose.Schema({
   resetToken: { 
     type: String 
   }, 
+  userCart: [
+    {
+      productId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+        required: true,
+      },
+      quantity: {
+        type: Number,
+        default: 1,
+      },
+    }
+  ],
+  cartCount: {
+    type: Number,
+    default: 0,
+  },
 });
 
 const User = mongoose.model("User", userSchema);
