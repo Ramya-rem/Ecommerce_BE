@@ -20,6 +20,8 @@ app.use(cors({
     credentials: true,
 }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parse URL-encoded bodies
+
 app.use(router);
 
 app.get('/', (req, res) => {
