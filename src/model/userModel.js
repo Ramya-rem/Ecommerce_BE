@@ -34,6 +34,20 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  userWishlist: [
+  {
+    productId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+      required: true,
+    },
+  },
+],
+
+wishlistCount: {
+  type: Number,
+  default: 0,
+},
 });
 
 const User = mongoose.model("User", userSchema);

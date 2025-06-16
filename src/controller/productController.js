@@ -170,6 +170,47 @@ const deleteFromCart = async (req, res) => {
   }
 };
 
+const addToWishlist = async (req, res) => {
+  try {
+    const userId = req.user._id; // Assumes you are using auth middleware
+    const { productId } = req.body;
 
+    if (!productId) {
+      return res.status(400).json({ message: "Product ID is required" });
+    }
 
-module.exports = { addProduct,  getallProduct, addToCart, deleteFromCart };
+    // Check if the product exists
+    const productExists = await Product.findById(productId);
+    if (!productExists) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    const user = await User.findById(userId);
+
+    // Check if product is already in wishlist
+    const alreadyInWishlist = user.userWishlist.some(item =>
+      item.productId.toString() === productId
+    );
+
+    if (alreadyInWishlist) {
+      return res.status(400).json({ message: "Product already in wishlist" });
+    }
+
+    // Add to wishlist
+    user.userWishlist.push({ productId });
+    user.wishlistCount = user.userWishlist.length;
+
+    await user.save();
+
+    res.status(200).json({
+      message: "Product added to wishlist",
+      wishlist: user.userWishlist,
+      wishlistCount: user.wishlistCount,
+    });
+  } catch (error) {
+    console.error("Add to wishlist error:", error.message);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+module.exports = { addProduct,  getallProduct, addToCart, deleteFromCart, addToWishlist };
