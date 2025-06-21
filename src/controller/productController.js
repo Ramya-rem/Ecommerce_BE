@@ -476,6 +476,85 @@ const deleteFromWishlist = async (req, res) => {
   }
 };
 
+const getUserCart = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findById(userId).populate("userCart.productId");
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const cartItems = user.userCart.map((item) => {
+      const product = item.productId;
+      return {
+        id: product._id,
+        productName: product.productName,
+        image: product.image,
+        price: product.price,
+        quantity: item.quantity,
+        total: product.price * item.quantity,
+        description: product.description,
+        category: product.category,
+      };
+    });
+
+    const totalCartValue = cartItems.reduce((sum, item) => sum + item.total, 0);
+
+    return res.status(200).json({
+      success: true,
+      cartItems,
+      cartCount: user.cartCount,
+      cartValue: totalCartValue,
+    });
+  } catch (error) {
+    console.error("Get cart error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+const getUserWishlist = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findById(userId).populate("userWishlist.productId");
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const wishlistItems = user.userWishlist.map((item) => {
+      const product = item.productId;
+      return {
+        id: product._id,
+        productName: product.productName,
+        image: product.image,
+        price: product.price,
+        description: product.description,
+        category: product.category,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      wishlistItems,
+      wishlistCount: user.wishlistCount,
+    });
+  } catch (error) {
+    console.error("Get wishlist error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   addProduct,
   getallProduct,
@@ -484,4 +563,6 @@ module.exports = {
   addToWishlist,
   deleteFromWishlist,
   updateCartItemQuantity,
+  getUserCart,
+  getUserWishlist
 };
