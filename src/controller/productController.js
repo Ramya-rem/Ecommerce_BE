@@ -51,19 +51,25 @@ const addToCart = async (req, res) => {
     const addAll = req.query.addAllToCart === "true";
 
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
 
     // Handle addAllToCart query
     if (addAll) {
       if (user.userWishlist.length === 0) {
-        return res.status(400).json({ success: false, message: "Wishlist is empty" });
+        return res
+          .status(400)
+          .json({ success: false, message: "Wishlist is empty" });
       }
 
       const addedProducts = [];
 
       for (const item of user.userWishlist) {
         const alreadyInCart = user.userCart.find(
-          (cartItem) => cartItem.productId.toString() === item.productId.toString()
+          (cartItem) =>
+            cartItem.productId.toString() === item.productId.toString()
         );
 
         if (!alreadyInCart) {
@@ -73,12 +79,12 @@ const addToCart = async (req, res) => {
               productId: product._id,
               productName: product.productName,
               price: product.price,
-              quantity: 1
+              quantity: 1,
             });
             addedProducts.push({
               productId: product._id,
               productName: product.productName,
-              price: product.price
+              price: product.price,
             });
           }
         }
@@ -89,7 +95,15 @@ const addToCart = async (req, res) => {
       user.wishlistCount = 0;
 
       // Recalculate cart count
-      user.cartCount = user.userCart.reduce((sum, item) => sum + item.quantity, 0);
+      user.cartCount = user.userCart.reduce(
+        (sum, item) => sum + item.quantity,
+        0
+      );
+
+      user.cartValue = user.userCart.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
 
       await user.save();
 
@@ -104,16 +118,22 @@ const addToCart = async (req, res) => {
 
     // 🔁 Normal single product add to cart
     if (!productId) {
-      return res.status(400).json({ success: false, message: "Product ID is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Product ID is required" });
     }
 
     if (quantity < 1) {
-      return res.status(400).json({ success: false, message: "Quantity must be at least 1" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Quantity must be at least 1" });
     }
 
     const product = await Product.findById(productId);
     if (!product) {
-      return res.status(404).json({ success: false, message: "Product not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
     }
 
     const existingCartItem = user.userCart.find(
@@ -136,14 +156,18 @@ const addToCart = async (req, res) => {
       productId: productId,
       productName: product.productName,
       price: product.price,
-      quantity: quantity
+      quantity: quantity,
     });
 
     user.cartCount = user.userCart.reduce(
       (total, item) => total + item.quantity,
       0
     );
-
+    //cart value updation
+    user.cartValue = user.userCart.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
     await user.save();
 
     res.status(200).json({
@@ -170,7 +194,6 @@ const addToCart = async (req, res) => {
   }
 };
 
-
 const deleteFromCart = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -185,6 +208,11 @@ const deleteFromCart = async (req, res) => {
     if (clearCart) {
       user.userCart = [];
       user.cartCount = 0;
+    //cart value updation
+      user.cartValue = user.userCart.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
       await user.save();
 
       return res.status(200).json({
@@ -217,6 +245,11 @@ const deleteFromCart = async (req, res) => {
       0
     );
 
+    //cart value updatation
+    user.cartValue = user.userCart.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
     await user.save();
 
     res.status(200).json({
@@ -234,14 +267,16 @@ const deleteFromCart = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete cart error:", error);
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
 
 const updateCartItemQuantity = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { productId, action } = req.body; // action: "increase" | "decrease"
+    const { productId, action } = req.body;
 
     if (!productId || !["increase", "decrease"].includes(action)) {
       return res.status(400).json({ message: "Invalid request" });
@@ -258,6 +293,11 @@ const updateCartItemQuantity = async (req, res) => {
       return res.status(404).json({ message: "Product not found in cart" });
     }
 
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found in DB" });
+    }
+
     if (action === "increase") {
       cartItem.quantity += 1;
     } else if (action === "decrease") {
@@ -268,24 +308,40 @@ const updateCartItemQuantity = async (req, res) => {
       }
     }
 
-    user.cartCount = user.userCart.reduce((sum, item) => sum + item.quantity, 0);
+    user.cartCount = user.userCart.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
 
+    user.cartValue = user.userCart.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
     await user.save();
+
+    const totalPrice = product.price * cartItem.quantity;
 
     res.status(200).json({
       message: `Quantity ${action}d`,
       updatedProduct: {
-        productId: cartItem.productId,
+        productId: product._id,
+        name: product.productName,
+        pricePerItem: product.price,
         quantity: cartItem.quantity,
+        totalPrice: totalPrice,
+        image: product.image,
+        description: product.description,
+        category: product.category,
       },
       cartCount: user.cartCount,
     });
   } catch (error) {
     console.error("Update cart quantity error:", error);
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
-
 
 const addToWishlist = async (req, res) => {
   try {
@@ -318,11 +374,11 @@ const addToWishlist = async (req, res) => {
     }
 
     // Add to wishlist
-    user.userWishlist.push({ 
+    user.userWishlist.push({
       productId: product._id,
       productName: product.productName,
       price: product.price,
-     });
+    });
     user.wishlistCount = user.userWishlist.length;
 
     await user.save();
@@ -374,7 +430,7 @@ const deleteFromWishlist = async (req, res) => {
           description: prod.description,
           category: prod.category,
         })),
-      wishlistCount: user.wishlistCount,
+        wishlistCount: user.wishlistCount,
       });
     }
 
@@ -427,5 +483,5 @@ module.exports = {
   deleteFromCart,
   addToWishlist,
   deleteFromWishlist,
-  updateCartItemQuantity
+  updateCartItemQuantity,
 };

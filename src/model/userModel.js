@@ -17,6 +17,25 @@ const userSchema = new mongoose.Schema({
   resetToken: {
     type: String,
   },
+   userWishlist: [
+    {
+      productId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+        required: true,
+      },
+      productName: {
+        type: String,
+      },
+      price: {
+        type: Number,
+      },
+    },
+  ],
+  wishlistCount: {
+    type: Number,
+    default: 0,
+  },
   userCart: [
     {
       productId: {
@@ -40,24 +59,9 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
-  userWishlist: [
-    {
-      productId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Product",
-        required: true,
-      },
-      productName: {
-        type: String,
-      },
-      price: {
-        type: Number,
-      },
-    },
-  ],
-  wishlistCount: {
+  cartValue: {
     type: Number,
-    default: 0,
+    default: 0, // New field to track total cart value
   },
 });
 
