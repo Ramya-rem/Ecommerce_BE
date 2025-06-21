@@ -46,48 +46,81 @@ const getallProduct = async (req, res) => {
 
 const addToCart = async (req, res) => {
   try {
-    const userId = req.user._id; 
+    const userId = req.user._id;
     const { productId, quantity = 1 } = req.body;
+    const addAll = req.query.addAllToCart === "true";
 
-    if (!productId) {
-      return res.status(400).json({
-        success: false,
-        message: "Product ID is required",
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    // Handle addAllToCart query
+    if (addAll) {
+      if (user.userWishlist.length === 0) {
+        return res.status(400).json({ success: false, message: "Wishlist is empty" });
+      }
+
+      const addedProducts = [];
+
+      for (const item of user.userWishlist) {
+        const alreadyInCart = user.userCart.find(
+          (cartItem) => cartItem.productId.toString() === item.productId.toString()
+        );
+
+        if (!alreadyInCart) {
+          const product = await Product.findById(item.productId);
+          if (product) {
+            user.userCart.push({
+              productId: product._id,
+              productName: product.productName,
+              price: product.price,
+              quantity: 1
+            });
+            addedProducts.push({
+              productId: product._id,
+              productName: product.productName,
+              price: product.price
+            });
+          }
+        }
+      }
+
+      // Clear wishlist after moving
+      user.userWishlist = [];
+      user.wishlistCount = 0;
+
+      // Recalculate cart count
+      user.cartCount = user.userCart.reduce((sum, item) => sum + item.quantity, 0);
+
+      await user.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "All wishlist products added to cart",
+        addedProducts,
+        cartCount: user.cartCount,
+        cartItems: user.userCart,
       });
+    }
+
+    // 🔁 Normal single product add to cart
+    if (!productId) {
+      return res.status(400).json({ success: false, message: "Product ID is required" });
     }
 
     if (quantity < 1) {
-      return res.status(400).json({
-        success: false,
-        message: "Quantity must be at least 1",
-      });
+      return res.status(400).json({ success: false, message: "Quantity must be at least 1" });
     }
 
-    // Verify that the product exists
     const product = await Product.findById(productId);
     if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
+      return res.status(404).json({ success: false, message: "Product not found" });
     }
 
-    // Find the user
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    // Check if product already exists in cart
     const existingCartItem = user.userCart.find(
       (item) => item.productId.toString() === productId
     );
 
     if (existingCartItem) {
-      // Product already exists in cart - throw error message
       return res.status(409).json({
         success: false,
         message: "You have already added this product to your cart",
@@ -97,27 +130,21 @@ const addToCart = async (req, res) => {
           cartCount: user.cartCount,
         },
       });
-    } else {
-      // Add new product to cart
-      user.userCart.push({
-        productId: productId,
-        productName: product.productName,
-        price: product.price,
-        quantity: quantity
-      });
     }
 
-    // Update cart count (total items in cart)
+    user.userCart.push({
+      productId: productId,
+      productName: product.productName,
+      price: product.price,
+      quantity: quantity
+    });
+
     user.cartCount = user.userCart.reduce(
       (total, item) => total + item.quantity,
       0
     );
 
-    // Save the updated user
     await user.save();
-
-    // Populate product details for response
-    await user.populate("userCart.productId");
 
     res.status(200).json({
       success: true,
@@ -142,6 +169,7 @@ const addToCart = async (req, res) => {
     });
   }
 };
+
 
 const deleteFromCart = async (req, res) => {
   try {
