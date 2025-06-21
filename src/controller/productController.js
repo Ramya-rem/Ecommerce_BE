@@ -238,6 +238,54 @@ const deleteFromCart = async (req, res) => {
   }
 };
 
+const updateCartItemQuantity = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { productId, action } = req.body; // action: "increase" | "decrease"
+
+    if (!productId || !["increase", "decrease"].includes(action)) {
+      return res.status(400).json({ message: "Invalid request" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const cartItem = user.userCart.find(
+      (item) => item.productId.toString() === productId
+    );
+
+    if (!cartItem) {
+      return res.status(404).json({ message: "Product not found in cart" });
+    }
+
+    if (action === "increase") {
+      cartItem.quantity += 1;
+    } else if (action === "decrease") {
+      if (cartItem.quantity > 1) {
+        cartItem.quantity -= 1;
+      } else {
+        return res.status(400).json({ message: "Minimum quantity is 1" });
+      }
+    }
+
+    user.cartCount = user.userCart.reduce((sum, item) => sum + item.quantity, 0);
+
+    await user.save();
+
+    res.status(200).json({
+      message: `Quantity ${action}d`,
+      updatedProduct: {
+        productId: cartItem.productId,
+        quantity: cartItem.quantity,
+      },
+      cartCount: user.cartCount,
+    });
+  } catch (error) {
+    console.error("Update cart quantity error:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
 
 const addToWishlist = async (req, res) => {
   try {
@@ -379,4 +427,5 @@ module.exports = {
   deleteFromCart,
   addToWishlist,
   deleteFromWishlist,
+  updateCartItemQuantity
 };
