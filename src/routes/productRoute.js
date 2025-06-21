@@ -5,7 +5,7 @@ const {upload} = require('../helper/multer.js');
 const {protect} = require('../controller/userController.js')
 router.post('/addProduct', upload.single("image"), addProduct);
 router.get('/getallProduct', getallProduct);
-router.post('/addtocart', addToCart);
+router.post('/addtocart', protect, addToCart);
 router.delete('/deletecart', protect, deleteFromCart);
 router.post('/addTo-wishlist', protect, addToWishlist);
 router.delete('/delete-wishlist', protect, deleteFromWishlist);

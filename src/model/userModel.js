@@ -14,9 +14,9 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  resetToken: { 
-    type: String 
-  }, 
+  resetToken: {
+    type: String,
+  },
   userCart: [
     {
       productId: {
@@ -24,32 +24,42 @@ const userSchema = new mongoose.Schema({
         ref: "Product",
         required: true,
       },
+      productName: {
+        type: String,
+      },
+      price: {
+        type: Number,
+      },
       quantity: {
         type: Number,
         default: 1,
       },
-    }
+    },
   ],
   cartCount: {
     type: Number,
     default: 0,
   },
   userWishlist: [
-  {
-    productId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Product",
-      required: true,
+    {
+      productId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+        required: true,
+      },
+      productName: {
+        type: String,
+      },
+      price: {
+        type: Number,
+      },
     },
+  ],
+  wishlistCount: {
+    type: Number,
+    default: 0,
   },
-],
-
-wishlistCount: {
-  type: Number,
-  default: 0,
-},
 });
 
 const User = mongoose.model("User", userSchema);
-
 module.exports = User;

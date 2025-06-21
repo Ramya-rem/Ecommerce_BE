@@ -46,12 +46,13 @@ const getallProduct = async (req, res) => {
 
 const addToCart = async (req, res) => {
   try {
-    const { userId, productId, quantity = 1 } = req.body;
+    const userId = req.user._id; 
+    const { productId, quantity = 1 } = req.body;
 
-    if (!userId || !productId) {
+    if (!productId) {
       return res.status(400).json({
         success: false,
-        message: "User ID and Product ID are required",
+        message: "Product ID is required",
       });
     }
 
@@ -100,7 +101,9 @@ const addToCart = async (req, res) => {
       // Add new product to cart
       user.userCart.push({
         productId: productId,
-        quantity: quantity,
+        productName: product.productName,
+        price: product.price,
+        quantity: quantity
       });
     }
 
@@ -142,43 +145,71 @@ const addToCart = async (req, res) => {
 
 const deleteFromCart = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { productId } = req.body; // required if not clearing full cart
+    const userId = req.user._id;
+    const { productId } = req.body;
     const clearCart = req.query.clearcart === "true";
 
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    if (clearCart) {
-      // Clear entire cart
-      user.userCart = [];
-      user.cartCount = 0;
-    } else {
-      // Remove a specific product
-      const cartItemIndex = user.userCart.findIndex(
-        (item) => item.productId.toString() === productId
-      );
-
-      if (cartItemIndex === -1) {
-        return res.status(404).json({ message: "Product not found in cart" });
-      }
-
-      user.userCart.splice(cartItemIndex, 1);
-      user.cartCount = user.userCart.reduce(
-        (sum, item) => sum + item.quantity,
-        0
-      );
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
 
+    if (clearCart) {
+      user.userCart = [];
+      user.cartCount = 0;
+      await user.save();
+
+      return res.status(200).json({
+        message: "Cart cleared",
+        cartCount: 0,
+        cartItems: [],
+      });
+    }
+
+    // For single item removal
+    const cartItemIndex = user.userCart.findIndex(
+      (item) => item.productId.toString() === productId
+    );
+
+    if (cartItemIndex === -1) {
+      return res.status(404).json({ message: "Product not found in cart" });
+    }
+
+    // Get product details
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found in database" });
+    }
+
+    const removedItem = user.userCart[cartItemIndex];
+    user.userCart.splice(cartItemIndex, 1);
+
+    user.cartCount = user.userCart.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
+
     await user.save();
-    return res
-      .status(200)
-      .json({ message: clearCart ? "Cart cleared" : "Item removed from cart" });
+
+    res.status(200).json({
+      message: "Item removed from cart",
+      removedProduct: {
+        id: product._id,
+        name: product.productName,
+        price: product.price,
+        quantity: removedItem.quantity,
+        image: product.image,
+        description: product.description,
+        category: product.category,
+      },
+      cartCount: user.cartCount,
+    });
   } catch (error) {
     console.error("Delete cart error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
+
 
 const addToWishlist = async (req, res) => {
   try {
@@ -187,6 +218,10 @@ const addToWishlist = async (req, res) => {
 
     if (!productId) {
       return res.status(400).json({ message: "Product ID is required" });
+    }
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
     }
 
     // Check if the product exists
@@ -207,13 +242,25 @@ const addToWishlist = async (req, res) => {
     }
 
     // Add to wishlist
-    user.userWishlist.push({ productId });
+    user.userWishlist.push({ 
+      productId: product._id,
+      productName: product.productName,
+      price: product.price,
+     });
     user.wishlistCount = user.userWishlist.length;
 
     await user.save();
 
     res.status(200).json({
       message: "Product added to wishlist",
+      addedProduct: {
+        id: product._id,
+        name: product.productName,
+        price: product.price,
+        image: product.image,
+        description: product.description,
+        category: product.category,
+      },
       wishlist: user.userWishlist,
       wishlistCount: user.wishlistCount,
     });
