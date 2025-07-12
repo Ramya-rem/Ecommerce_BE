@@ -6,6 +6,7 @@ const app = express();
 const cors = require("cors");
 const port = process.env.PORT || 7777;
 const logger = require("./src/helper/logger"); 
+const path = require("path");
 
 mongoose.connect(process.env.DBURL, {
     maxPoolSize: 10,
@@ -23,6 +24,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parse URL-encoded bodies
 
 app.use(router);
+app.use("/uploads", express.static(path.join(__dirname, "src", "uploads")));
+
 
 app.get('/', (req, res) => {
     res.send(' ***🔥🔥 Hey ramya.. You server is running 🔥🔥*** ')
