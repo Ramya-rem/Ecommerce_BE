@@ -3,7 +3,9 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const logger = require("../helper/logger");
+const { addToBlacklist, isBlacklisted } = require("../helper/tokenBlacklist");
 require('dotenv').config();
+
 
 const signup = async (req, res) => {
   try {
@@ -160,6 +162,34 @@ const resetPassword = async (req, res) => {
 
 const logout = async (req, res) => {
   try {
+    // Get the token from Authorization header or cookie
+    const authHeader = req.headers.authorization;
+    let token = null;
+    
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    } else if (req.cookies.token) {
+      token = req.cookies.token;
+    }
+
+    // Check if token is already blacklisted
+    if (token && isBlacklisted(token)) {
+      logger.warn("Logout attempted with already blacklisted token");
+      return res.status(401).json({ message: "Token already revoked. User already logged out." });
+    }
+
+    // Add token to blacklist if it exists and is valid
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        addToBlacklist(token);
+        logger.info(`Token blacklisted for user: ${decoded.id}`);
+      } catch (error) {
+        logger.warn("Invalid token during logout");
+        return res.status(401).json({ message: "Invalid token. Please log in again." });
+      }
+    }
+
     // Clear the token cookie
     res.clearCookie("token", {
       httpOnly: true,
@@ -184,6 +214,13 @@ const protect = async (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
+    
+    // Check if token is blacklisted
+    if (isBlacklisted(token)) {
+      logger.warn("Access denied: Token is blacklisted (user logged out)");
+      return res.status(401).json({ message: "Token has been revoked. Please log in again." });
+    }
+    
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = await User.findById(decoded.id).select("-password");
 
@@ -199,4 +236,49 @@ const protect = async (req, res, next) => {
   }
 };
 
-module.exports = { signup, login, forgotPassword, resetPassword, logout, protect };
+// Add a function to check token status
+const checkTokenStatus = async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ 
+        valid: false, 
+        message: "No token provided" 
+      });
+    }
+
+    const token = authHeader.split(" ")[1];
+    
+    // Check if token is blacklisted
+    if (isBlacklisted(token)) {
+      return res.status(401).json({ 
+        valid: false, 
+        message: "Token has been revoked (user logged out)" 
+      });
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select("-password");
+
+    if (!user) {
+      return res.status(401).json({ 
+        valid: false, 
+        message: "User not found" 
+      });
+    }
+
+    return res.status(200).json({ 
+      valid: true, 
+      message: "Token is valid",
+      user: { id: user._id, name: user.name, emailId: user.emailId }
+    });
+  } catch (error) {
+    return res.status(401).json({ 
+      valid: false, 
+      message: "Invalid or expired token" 
+    });
+  }
+};
+
+module.exports = { signup, login, forgotPassword, resetPassword, logout, protect, checkTokenStatus };
