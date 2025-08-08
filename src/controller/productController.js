@@ -45,6 +45,7 @@ const getallProduct = async (req, res) => {
 };
 
 const addToCart = async (req, res) => {
+  console.log("addToCart api hitted✔️✔️")
   try {
     const userId = req.user._id;
     const { productId, quantity = 1 } = req.body;
@@ -344,6 +345,7 @@ const updateCartItemQuantity = async (req, res) => {
 };
 
 const addToWishlist = async (req, res) => {
+  console.log("wishlist api hitted👍")
   try {
     const userId = req.user._id; // Assumes you are using auth middleware
     const { productId } = req.body;
@@ -403,6 +405,8 @@ const addToWishlist = async (req, res) => {
 };
 
 const deleteFromWishlist = async (req, res) => {
+    console.log("delete wishlist api hitted👍")
+
   try {
     const userId = req.user._id; // Assumes auth middleware sets req.user
     const { productId } = req.body;

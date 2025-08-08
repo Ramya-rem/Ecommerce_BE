@@ -7,6 +7,7 @@ const cors = require("cors");
 const port = process.env.PORT || 7777;
 const logger = require("./src/helper/logger"); 
 const path = require("path");
+const morgan = require("morgan")
 
 mongoose.connect(process.env.DBURL, {
     maxPoolSize: 10,
@@ -21,6 +22,7 @@ app.use(cors({
     credentials: true,
 }));
 app.use(express.json());
+app.use(morgan('dev'))
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parse URL-encoded bodies
 
 app.use(router);
