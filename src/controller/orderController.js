@@ -66,36 +66,25 @@ const placeOrder = async (req, res) => {
 
 const getOrderSummary = async (req, res) => {
   try {
-    const { userId } = req.params; 
-    const user = await User.findById(userId);
+    const user = await User.findById(req.user._id);
 
-    if (!user || user.userCart.length === 0) {
+    if (!user || !Array.isArray(user.userCart) || user.userCart.length === 0) {
       return res.status(400).json({ message: "Cart is empty" });
     }
 
-    const subtotal = user.userCart.reduce(
-      (sum, item) => sum + (item.price || 0) * (item.quantity || 1),
-      0
-    );
-
-    const tax = +(subtotal * 0.08).toFixed(2);
-
-    const shipping = subtotal > 50 ? 0 : 10;
-
-    const total = +(subtotal + tax + shipping).toFixed(2);
-
-    res.json({
-      subtotal,
-      tax,
-      shipping,
-      total
+    res.status(200).json({
+      cartItems: user.userCart,
+      deliveryAddress: user.deliveryAddress || null,
+      subtotal: user.cartValue || 0,
+      tax: Number((user.cartValue * 0.08).toFixed(2)),
+      shipping: "FREE",
+      total: user.cartValue ? (user.cartValue * 1.08).toFixed(2) : 0
     });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal server error" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
+
 
 
 module.exports = { placeOrder, getOrderSummary };
