@@ -3,9 +3,9 @@ const User = require("../model/userModel");
 
 const placeOrder = async (req, res) => {
   try {
-    const { userId, deliveryAddress, editAddress } = req.body;
+    const { deliveryAddress, editAddress } = req.body;
 
-    const user = await User.findById(userId);
+    const user = await User.findById(req.user._id);
     if (!user || user.userCart.length === 0) {
       return res.status(400).json({ message: "Cart is empty or user not found." });
     }
@@ -30,7 +30,7 @@ const placeOrder = async (req, res) => {
     const totalAmount = +(subtotal + tax).toFixed(2);
 
     const newOrder = new Order({
-      userId,
+      userId: user._id,
       deliveryAddress: finalAddress,
       orderItems: user.userCart.map(item => ({
         productRefId: item.productId, 
