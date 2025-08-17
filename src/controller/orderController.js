@@ -31,6 +31,7 @@ const placeOrder = async (req, res) => {
 
     const newOrder = new Order({
       userId: user._id,
+      emailId: user.emailId,
       deliveryAddress: finalAddress,
       orderItems: user.userCart.map(item => ({
         productRefId: item.productId, 
@@ -85,6 +86,27 @@ const getOrderSummary = async (req, res) => {
   }
 };
 
+const getUserOrders = async (req, res) => {
+  try{
+
+    const userId = req.user._id;
+
+    const orders=  await Order.find({ userId })
+    .populate("orderItems.productRefId", "productName price")
+    .sort({ createdAt: -1 })
+
+    if(!orders || orders.length === 0){
+      return res.status(404).json({ message: "No Orders found for this User" })
+    }
+    res.status(200).json({
+      success: true,
+      count: orders.length,
+      orders,
+    })
+  }catch(error){
+    re.status(500).json({ "message": "Server error"})
+  }
+}
 
 
-module.exports = { placeOrder, getOrderSummary };
+module.exports = { placeOrder, getOrderSummary, getUserOrders };
