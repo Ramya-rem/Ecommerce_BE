@@ -273,4 +273,37 @@ const checkTokenStatus = async (req, res) => {
   }
 };
 
-module.exports = { signup, login, forgotPassword, resetPassword, logout, protect, checkTokenStatus };
+// Add or Update Delivery Address
+const upsertDeliveryAddress = async (req, res) => {
+  try {
+    const { fullName, phoneNumber, addressLine } = req.body;
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.deliveryAddress = { fullName, phoneNumber, addressLine };
+
+    await user.save();
+
+    res.status(200).json({ message: "Delivery address saved successfully", deliveryAddress: user.deliveryAddress });
+  } catch (error) {
+    console.error("Error saving address:", error);
+    res.status(500).json({ message: "Server error while saving address" });
+  }
+};
+
+// Get Delivery Address
+const getDeliveryAddress = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.status(200).json({ deliveryAddress: user.deliveryAddress });
+  } catch (error) {
+    console.error("Error fetching address:", error);
+    res.status(500).json({ message: "Server error while fetching address" });
+  }
+};
+
+
+module.exports = { signup, login, forgotPassword, resetPassword, logout, protect, checkTokenStatus, upsertDeliveryAddress, getDeliveryAddress };
