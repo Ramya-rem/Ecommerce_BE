@@ -34,7 +34,9 @@ const getallProduct = async (req, res) => {
     let filter = {};
 
     if (category) {
-      filter.category = { $regex: category, $options: "i" }; // exact match, case-insensitive
+      // Escape special regex characters and use exact case-insensitive match
+      const escapedCategory = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.category = { $regex: `^${escapedCategory}$`, $options: "i" };
     }
 
     const products = await Product.find(filter);

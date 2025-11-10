@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require("mongoose")
 
 const orderSchema = new mongoose.Schema(
   {
@@ -20,9 +20,8 @@ const orderSchema = new mongoose.Schema(
     orderItems: [
       {
         productRefId: {
-          // 🔹 changed key name
           type: mongoose.Schema.Types.ObjectId,
-          ref: "Product", // still references Product model
+          ref: "Product",
         },
         productName: String,
         price: Number,
@@ -36,6 +35,18 @@ const orderSchema = new mongoose.Schema(
       default: "FREE",
     },
     totalAmount: Number,
+    paymentMethod: {
+      type: String,
+      enum: ["cod", "card", "upi"],
+      default: "cod",
+    },
+    paymentDetails: {
+      cardLast4: String,
+      cardBrand: String,
+      cardholderName: String,
+      stripePaymentId: String,
+      paymentDate: Date,
+    },
     orderDate: {
       type: Date,
       default: Date.now,
@@ -48,8 +59,7 @@ const orderSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
-);
+  },
+)
 
-// ✅ Using a different model name to avoid overwriting issue
-module.exports = mongoose.models.Order || mongoose.model("Order", orderSchema);
+module.exports = mongoose.models.Order || mongoose.model("Order", orderSchema)

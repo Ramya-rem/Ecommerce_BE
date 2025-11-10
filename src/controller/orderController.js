@@ -3,67 +3,81 @@ const User = require("../model/userModel");
 
 const placeOrder = async (req, res) => {
   try {
-    const { deliveryAddress, editAddress } = req.body;
+    const { deliveryAddress, editAddress, paymentMethod, paymentData } = req.body
 
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id)
     if (!user || user.userCart.length === 0) {
-      return res.status(400).json({ message: "Cart is empty or user not found." });
+      return res.status(400).json({ message: "Cart is empty or user not found." })
     }
 
     if (!user.deliveryAddress || !user.deliveryAddress.addressLine) {
       if (!deliveryAddress) {
-        return res.status(400).json({ message: "No delivery address found. Please provide one." });
+        return res.status(400).json({ message: "No delivery address found. Please provide one." })
       }
-      user.deliveryAddress = deliveryAddress;
-      await user.save();
+      user.deliveryAddress = deliveryAddress
+      await user.save()
     }
 
     if (editAddress && deliveryAddress) {
-      user.deliveryAddress = deliveryAddress;
-      await user.save();
+      user.deliveryAddress = deliveryAddress
+      await user.save()
     }
 
-    const finalAddress = deliveryAddress || user.deliveryAddress;
+    const finalAddress = deliveryAddress || user.deliveryAddress
 
-    const subtotal = user.cartValue;
-    const tax = +(subtotal * 0.08).toFixed(2);
-    const totalAmount = +(subtotal + tax).toFixed(2);
+    const subtotal = user.cartValue
+    const tax = +(subtotal * 0.08).toFixed(2)
+    const totalAmount = +(subtotal + tax).toFixed(2)
 
-    const newOrder = new Order({
+    const orderData = {
       userId: user._id,
       emailId: user.emailId,
       deliveryAddress: finalAddress,
-      orderItems: user.userCart.map(item => ({
-        productRefId: item.productId, 
+      orderItems: user.userCart.map((item) => ({
+        productRefId: item.productId,
         productName: item.productName,
         price: item.price,
-        quantity: item.quantity
+        quantity: item.quantity,
       })),
       subtotal,
       tax,
       totalAmount,
-    });
+      paymentMethod: paymentMethod || "cod",
+    }
 
-    await newOrder.save();
+    if (paymentMethod === "card" && paymentData) {
+      orderData.paymentDetails = {
+        cardLast4: paymentData.cardLast4,
+        cardholderName: paymentData.cardholderName,
+        paymentDate: new Date(),
+      }
+    }
+
+    const newOrder = new Order(orderData)
+    await newOrder.save()
 
     // Clear user's cart
-    user.userCart = [];
-    user.cartCount = 0;
-    user.cartValue = 0;
-    await user.save();
+    user.userCart = []
+    user.cartCount = 0
+    user.cartValue = 0
+    await user.save()
+
+    console.log("[v0] Order placed successfully:", {
+      orderId: newOrder._id,
+      paymentMethod,
+      totalAmount,
+    })
 
     res.status(201).json({
       message: "Order placed successfully",
       orderId: newOrder._id,
       totalAmount: newOrder.totalAmount,
-    });
-
+    })
   } catch (error) {
-    console.error("Error placing order:", error);
-    res.status(500).json({ message: "Server error while placing order" });
+    console.error("Error placing order:", error)
+    res.status(500).json({ message: "Server error while placing order" })
   }
-};
-
+}
 
 const getOrderSummary = async (req, res) => {
   try {
