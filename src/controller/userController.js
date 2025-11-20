@@ -276,16 +276,67 @@ const checkTokenStatus = async (req, res) => {
 // Add or Update Delivery Address
 const upsertDeliveryAddress = async (req, res) => {
   try {
-    const { fullName, phoneNumber, addressLine } = req.body;
+    const { addressId, fullName, phoneNumber, addressLine, isDefault } = req.body;
+
+    if (
+      !addressId &&
+      (!fullName || !phoneNumber || !addressLine)
+    ) {
+      return res.status(400).json({ message: "fullName, phoneNumber and addressLine are required to add a new address" });
+    }
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    user.deliveryAddress = { fullName, phoneNumber, addressLine };
+    if (!Array.isArray(user.deliveryAddress)) {
+      user.deliveryAddress = [];
+    }
+
+    if (!addressId) {
+      const newAddress = {
+        fullName,
+        phoneNumber,
+        addressLine,
+        isDefault: Boolean(isDefault),
+      };
+
+      if (newAddress.isDefault) {
+        user.deliveryAddress.forEach((addr) => (addr.isDefault = false));
+      } else if (user.deliveryAddress.length === 0) {
+        newAddress.isDefault = true;
+      }
+
+      user.deliveryAddress.push(newAddress);
+    } else {
+      const existingAddress = user.deliveryAddress.id(addressId);
+      if (!existingAddress) {
+        return res.status(404).json({ message: "Address not found" });
+      }
+
+      if (fullName !== undefined) existingAddress.fullName = fullName;
+      if (phoneNumber !== undefined) existingAddress.phoneNumber = phoneNumber;
+      if (addressLine !== undefined) existingAddress.addressLine = addressLine;
+
+      if (typeof isDefault === "boolean") {
+        if (isDefault) {
+          user.deliveryAddress.forEach((addr) => (addr.isDefault = false));
+          existingAddress.isDefault = true;
+        } else {
+          existingAddress.isDefault = false;
+        }
+      }
+    }
+
+    if (user.deliveryAddress.length > 0 && !user.deliveryAddress.some((addr) => addr.isDefault)) {
+      user.deliveryAddress[0].isDefault = true;
+    }
 
     await user.save();
 
-    res.status(200).json({ message: "Delivery address saved successfully", deliveryAddress: user.deliveryAddress });
+    res.status(200).json({
+      message: addressId ? "Delivery address updated successfully" : "Delivery address added successfully",
+      deliveryAddress: user.deliveryAddress,
+    });
   } catch (error) {
     console.error("Error saving address:", error);
     res.status(500).json({ message: "Server error while saving address" });

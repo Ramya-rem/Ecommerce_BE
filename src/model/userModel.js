@@ -63,11 +63,26 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0, // New field to track total cart value
   },
-  deliveryAddress: {
-  fullName: String,
-  phoneNumber: String,
-  addressLine: String
-}
+  deliveryAddress: [
+    {
+      fullName: {
+        type: String,
+        required: true,
+      },
+      phoneNumber: {
+        type: String,
+        required: true,
+      },
+      addressLine: {
+        type: String,
+        required: true,
+      },
+      isDefault: {
+        type: Boolean,
+        default: false,
+      },
+    },
+  ],
 
 });
 
