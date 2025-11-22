@@ -83,7 +83,10 @@ const userSchema = new mongoose.Schema({
       },
     },
   ],
-
+  profilePicture: {
+    type: String,
+    default: null,
+  },
 });
 
 const User = mongoose.model("User", userSchema);

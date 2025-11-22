@@ -1,9 +1,12 @@
 const User = require("../model/userModel");
+const Feedback = require("../model/feedbackModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const logger = require("../helper/logger");
 const { addToBlacklist, isBlacklisted } = require("../helper/tokenBlacklist");
+const fs = require("fs");
+const path = require("path");
 require('dotenv').config();
 
 
@@ -356,5 +359,213 @@ const getDeliveryAddress = async (req, res) => {
   }
 };
 
+// Get User Profile
+const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password -resetToken");
+    if (!user) {
+      logger.warn("Profile fetch failed: User not found");
+      return res.status(404).json({ message: "User not found" });
+    }
 
-module.exports = { signup, login, forgotPassword, resetPassword, logout, protect, checkTokenStatus, upsertDeliveryAddress, getDeliveryAddress };
+    logger.info(`Profile fetched for user: ${user.emailId}`);
+    res.status(200).json({
+      success: true,
+      user: {
+        id: user._id,
+        name: user.name,
+        emailId: user.emailId,
+        profilePicture: user.profilePicture,
+      },
+    });
+  } catch (error) {
+    logger.error(`Get profile error: ${error.message}`);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// Update User Profile
+const updateProfile = async (req, res) => {
+  try {
+    const { name, emailId } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      logger.warn("Profile update failed: User not found");
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if email is being changed and if it's already taken
+    if (emailId && emailId !== user.emailId) {
+      const existingUser = await User.findOne({ emailId });
+      if (existingUser) {
+        logger.warn(`Profile update failed: Email already registered - ${emailId}`);
+        return res.status(400).json({ message: "Email is already registered" });
+      }
+      user.emailId = emailId;
+    }
+
+    if (name) {
+      user.name = name;
+    }
+
+    await user.save();
+
+    logger.info(`Profile updated for user: ${user.emailId}`);
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        emailId: user.emailId,
+        profilePicture: user.profilePicture,
+      },
+    });
+  } catch (error) {
+    logger.error(`Update profile error: ${error.message}`);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// Update Profile Picture
+const updateProfilePicture = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Profile picture is required" });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      logger.warn("Profile picture update failed: User not found");
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Delete old profile picture if it exists
+    if (user.profilePicture) {
+      try {
+        const oldImagePath = path.join(__dirname, "../uploads", user.profilePicture.split("/").pop());
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+          logger.info(`Old profile picture deleted: ${oldImagePath}`);
+        }
+      } catch (error) {
+        logger.warn(`Failed to delete old profile picture: ${error.message}`);
+        // Continue with update even if deletion fails
+      }
+    }
+
+    const imageUrl = `/uploads/${req.file.filename}`;
+    user.profilePicture = imageUrl;
+    await user.save();
+
+    logger.info(`Profile picture updated for user: ${user.emailId}`);
+    res.status(200).json({
+      success: true,
+      message: "Profile picture updated successfully",
+      profilePicture: user.profilePicture,
+    });
+  } catch (error) {
+    logger.error(`Update profile picture error: ${error.message}`);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+
+// Add Feedback
+const addFeedback = async (req, res) => {
+  try {
+    const { rating, feedback } = req.body;
+
+    if (!rating) {
+      logger.warn("Feedback submission failed: Rating is required");
+      return res.status(400).json({ message: "Rating is required" });
+    }
+
+    if (!feedback || !feedback.trim()) {
+      logger.warn("Feedback submission failed: Feedback is required");
+      return res.status(400).json({ message: "Feedback is required" });
+    }
+
+    if (rating < 1 || rating > 5) {
+      logger.warn("Feedback submission failed: Invalid rating");
+      return res.status(400).json({ message: "Rating must be between 1 and 5" });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      logger.warn("Feedback submission failed: User not found");
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const newFeedback = new Feedback({
+      userId: user._id,
+      userName: user.name,
+      userEmail: user.emailId,
+      rating: parseInt(rating),
+      feedback: feedback.trim(),
+    });
+
+    await newFeedback.save();
+
+    logger.info(`Feedback submitted by user: ${user.emailId}`);
+    res.status(201).json({
+      success: true,
+      message: "Thank you for your feedback!",
+      feedback: newFeedback,
+    });
+  } catch (error) {
+    logger.error(`Add feedback error: ${error.message}`);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// Get User's Feedbacks
+const getUserFeedbacks = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      logger.warn("Get user feedbacks failed: User not found");
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const feedbacks = await Feedback.find({ userId: user._id })
+      .sort({ createdAt: -1 })
+      .select("-__v");
+
+    logger.info(`User feedbacks fetched for: ${user.emailId}`);
+    res.status(200).json({
+      success: true,
+      feedbacks,
+    });
+  } catch (error) {
+    logger.error(`Get user feedbacks error: ${error.message}`);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// Get All Feedbacks (for admin/public display)
+const getAllFeedbacks = async (req, res) => {
+  try {
+    const feedbacks = await Feedback.find({ status: "active" })
+      .sort({ createdAt: -1 })
+      .select("-__v")
+      .limit(50); // Limit to recent 50 feedbacks
+
+    const averageRating = feedbacks.length > 0
+      ? feedbacks.reduce((sum, f) => sum + f.rating, 0) / feedbacks.length
+      : 0;
+
+    res.status(200).json({
+      success: true,
+      feedbacks,
+      averageRating: averageRating.toFixed(1),
+      totalFeedbacks: feedbacks.length,
+    });
+  } catch (error) {
+    logger.error(`Get all feedbacks error: ${error.message}`);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+module.exports = { signup, login, forgotPassword, resetPassword, logout, protect, checkTokenStatus, upsertDeliveryAddress, getDeliveryAddress, getProfile, updateProfile, updateProfilePicture, addFeedback, getUserFeedbacks, getAllFeedbacks };
