@@ -487,6 +487,13 @@ const addFeedback = async (req, res) => {
       return res.status(400).json({ message: "Feedback is required" });
     }
 
+    // Check word count (max 200 words)
+    const wordCount = feedback.trim().split(/\s+/).filter(word => word.length > 0).length;
+    if (wordCount > 200) {
+      logger.warn("Feedback submission failed: Feedback exceeds 200 words");
+      return res.status(400).json({ message: "Feedback cannot exceed 200 words. Please shorten your feedback." });
+    }
+
     if (rating < 1 || rating > 5) {
       logger.warn("Feedback submission failed: Invalid rating");
       return res.status(400).json({ message: "Rating must be between 1 and 5" });
