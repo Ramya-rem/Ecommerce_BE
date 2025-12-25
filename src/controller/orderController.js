@@ -40,13 +40,23 @@ const placeOrder = async (req, res) => {
     }
     tax = +tax.toFixed(2)
     
-    // Calculate discount if coupon code is provided
+    // Check if this is user's first order
+    const existingOrders = await Order.find({ userId: user._id })
+    const isFirstOrder = existingOrders.length === 0
+    
+    // Calculate discount if coupon code is provided or if it's first order
     let discount = 0
     let appliedCoupon = null
     
-    if (couponCode) {
+    // Auto-apply FIRSTORDER20 coupon for first orders if no coupon code provided
+    let couponToUse = couponCode
+    if (!couponCode && isFirstOrder) {
+      couponToUse = "FIRSTORDER20"
+    }
+    
+    if (couponToUse) {
       const coupon = coupons.find(
-        (c) => c.code.toUpperCase() === couponCode.toUpperCase().trim() && c.isActive
+        (c) => c.code === couponToUse.trim() && c.isActive
       )
       
       if (coupon && subtotal >= coupon.minOrder) {
@@ -157,13 +167,23 @@ const getOrderSummary = async (req, res) => {
     // Calculate average tax percentage for display (weighted by item value)
     const displayTaxPercentage = subtotal > 0 ? (averageTaxPercentage / subtotal) * 100 : 0
     
-    // Calculate discount if coupon code is provided
+    // Check if this is user's first order
+    const existingOrders = await Order.find({ userId: user._id })
+    const isFirstOrder = existingOrders.length === 0
+    
+    // Calculate discount if coupon code is provided or if it's first order
     let discount = 0
     let appliedCoupon = null
     
-    if (couponCode) {
+    // Auto-apply FIRSTORDER20 coupon for first orders if no coupon code provided
+    let couponToUse = couponCode
+    if (!couponCode && isFirstOrder) {
+      couponToUse = "FIRSTORDER20"
+    }
+    
+    if (couponToUse) {
       const coupon = coupons.find(
-        (c) => c.code.toUpperCase() === couponCode.toUpperCase().trim() && c.isActive
+        (c) => c.code === couponToUse.trim() && c.isActive
       )
       
       if (coupon && subtotal >= coupon.minOrder) {

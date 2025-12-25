@@ -42,9 +42,9 @@ const validateCoupon = async (req, res) => {
 
     const subtotal = user.cartValue || 0
 
-    // Find coupon by code (case-insensitive)
+    // Find coupon by code (exact match only)
     const coupon = coupons.find(
-      (c) => c.code.toUpperCase() === couponCode.toUpperCase().trim() && c.isActive
+      (c) => c.code === couponCode.trim() && c.isActive
     )
 
     if (!coupon) {

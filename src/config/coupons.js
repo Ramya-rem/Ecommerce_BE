@@ -27,6 +27,15 @@ const coupons = [
     isActive: true,
     description: "15% off on orders above $50 (max $20 discount)",
   },
+  {
+    code: "FIRSTORDER20",
+    discount: 20,
+    type: "percentage",
+    minOrder: 0, // No minimum order for first order
+    maxDiscount: null,
+    isActive: true,
+    description: "20% off on your first order!",
+  },
 ]
 
 module.exports = coupons
