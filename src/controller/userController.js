@@ -557,17 +557,27 @@ const getAllFeedbacks = async (req, res) => {
     const feedbacks = await Feedback.find({ status: "active" })
       .sort({ createdAt: -1 })
       .select("-__v")
-      .limit(50); // Limit to recent 50 feedbacks
+      .limit(50)
+      .populate("userId", "profilePicture"); // Populate profilePicture from User
 
-    const averageRating = feedbacks.length > 0
-      ? feedbacks.reduce((sum, f) => sum + f.rating, 0) / feedbacks.length
+    // Map feedbacks to include profilePicture in a flat structure
+    const feedbacksWithProfile = feedbacks.map((feedback) => {
+      const feedbackObj = feedback.toObject();
+      feedbackObj.profilePicture = feedbackObj.userId?.profilePicture || null;
+      // Remove the userId object as we only need profilePicture
+      delete feedbackObj.userId;
+      return feedbackObj;
+    });
+
+    const averageRating = feedbacksWithProfile.length > 0
+      ? feedbacksWithProfile.reduce((sum, f) => sum + f.rating, 0) / feedbacksWithProfile.length
       : 0;
 
     res.status(200).json({
       success: true,
-      feedbacks,
+      feedbacks: feedbacksWithProfile,
       averageRating: averageRating.toFixed(1),
-      totalFeedbacks: feedbacks.length,
+      totalFeedbacks: feedbacksWithProfile.length,
     });
   } catch (error) {
     logger.error(`Get all feedbacks error: ${error.message}`);
