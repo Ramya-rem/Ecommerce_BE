@@ -1,10 +1,11 @@
 const Order = require("../model/orderModel");
 const User = require("../model/userModel");
 const Product = require("../model/productModel");
+const coupons = require("../config/coupons");
 
 const placeOrder = async (req, res) => {
   try {
-    const { deliveryAddress, editAddress, paymentMethod, paymentData } = req.body
+    const { deliveryAddress, editAddress, paymentMethod, paymentData, couponCode } = req.body
 
     const user = await User.findById(req.user._id)
     if (!user || user.userCart.length === 0) {
@@ -38,7 +39,39 @@ const placeOrder = async (req, res) => {
       }
     }
     tax = +tax.toFixed(2)
-    const totalAmount = +(subtotal + tax).toFixed(2)
+    
+    // Calculate discount if coupon code is provided
+    let discount = 0
+    let appliedCoupon = null
+    
+    if (couponCode) {
+      const coupon = coupons.find(
+        (c) => c.code.toUpperCase() === couponCode.toUpperCase().trim() && c.isActive
+      )
+      
+      if (coupon && subtotal >= coupon.minOrder) {
+        if (coupon.type === "percentage") {
+          discount = (subtotal * coupon.discount) / 100
+          if (coupon.maxDiscount !== null && discount > coupon.maxDiscount) {
+            discount = coupon.maxDiscount
+          }
+        } else if (coupon.type === "fixed") {
+          discount = coupon.discount
+        }
+        
+        // Ensure discount doesn't exceed subtotal
+        discount = Math.min(discount, subtotal)
+        discount = +discount.toFixed(2)
+        
+        appliedCoupon = {
+          code: coupon.code,
+          discount: coupon.discount,
+          type: coupon.type,
+        }
+      }
+    }
+    
+    const totalAmount = +(subtotal + tax - discount).toFixed(2)
 
     const orderData = {
       userId: user._id,
@@ -52,8 +85,14 @@ const placeOrder = async (req, res) => {
       })),
       subtotal,
       tax,
+      discount: discount || 0,
       totalAmount,
       paymentMethod: paymentMethod || "cod",
+    }
+
+    // Only include coupon if one was applied
+    if (appliedCoupon) {
+      orderData.coupon = appliedCoupon
     }
 
     if (paymentMethod === "card" && paymentData) {
@@ -93,6 +132,7 @@ const placeOrder = async (req, res) => {
 const getOrderSummary = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
+    const { couponCode } = req.query; // Get coupon code from query params
 
     if (!user || !Array.isArray(user.userCart) || user.userCart.length === 0) {
       return res.status(400).json({ message: "Cart is empty" });
@@ -117,7 +157,39 @@ const getOrderSummary = async (req, res) => {
     // Calculate average tax percentage for display (weighted by item value)
     const displayTaxPercentage = subtotal > 0 ? (averageTaxPercentage / subtotal) * 100 : 0
     
-    const total = subtotal + tax;
+    // Calculate discount if coupon code is provided
+    let discount = 0
+    let appliedCoupon = null
+    
+    if (couponCode) {
+      const coupon = coupons.find(
+        (c) => c.code.toUpperCase() === couponCode.toUpperCase().trim() && c.isActive
+      )
+      
+      if (coupon && subtotal >= coupon.minOrder) {
+        if (coupon.type === "percentage") {
+          discount = (subtotal * coupon.discount) / 100
+          if (coupon.maxDiscount !== null && discount > coupon.maxDiscount) {
+            discount = coupon.maxDiscount
+          }
+        } else if (coupon.type === "fixed") {
+          discount = coupon.discount
+        }
+        
+        // Ensure discount doesn't exceed subtotal
+        discount = Math.min(discount, subtotal)
+        discount = Number(discount.toFixed(2))
+        
+        appliedCoupon = {
+          code: coupon.code,
+          discount: coupon.discount,
+          type: coupon.type,
+          description: coupon.description,
+        }
+      }
+    }
+    
+    const total = subtotal + tax - discount;
 
     res.status(200).json({
       cartItems: user.userCart,
@@ -125,6 +197,8 @@ const getOrderSummary = async (req, res) => {
       subtotal,
       tax,
       taxPercentage: Number(displayTaxPercentage.toFixed(2)), // Return as percentage (8 instead of 0.08)
+      discount: discount || 0,
+      coupon: appliedCoupon,
       shipping: "FREE",
       total: Number(total.toFixed(2))
     });
