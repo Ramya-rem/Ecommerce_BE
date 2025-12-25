@@ -1,5 +1,6 @@
 const Order = require("../model/orderModel");
 const User = require("../model/userModel");
+const Product = require("../model/productModel");
 
 const placeOrder = async (req, res) => {
   try {
@@ -26,7 +27,17 @@ const placeOrder = async (req, res) => {
     const finalAddress = deliveryAddress || user.deliveryAddress
 
     const subtotal = user.cartValue
-    const tax = +(subtotal * 0.08).toFixed(2)
+    
+    // Calculate tax based on each product's tax percentage
+    let tax = 0
+    for (const cartItem of user.userCart) {
+      const product = await Product.findById(cartItem.productId)
+      if (product && product.taxPercentage) {
+        const itemSubtotal = cartItem.price * cartItem.quantity
+        tax += itemSubtotal * product.taxPercentage
+      }
+    }
+    tax = +tax.toFixed(2)
     const totalAmount = +(subtotal + tax).toFixed(2)
 
     const orderData = {
@@ -87,13 +98,35 @@ const getOrderSummary = async (req, res) => {
       return res.status(400).json({ message: "Cart is empty" });
     }
 
+    const subtotal = user.cartValue || 0;
+    
+    // Calculate tax based on each product's tax percentage
+    let tax = 0
+    let averageTaxPercentage = 0
+    for (const cartItem of user.userCart) {
+      const product = await Product.findById(cartItem.productId)
+      if (product && product.taxPercentage) {
+        const itemSubtotal = cartItem.price * cartItem.quantity
+        tax += itemSubtotal * product.taxPercentage
+        // Calculate weighted average tax percentage for display
+        averageTaxPercentage += (product.taxPercentage * itemSubtotal)
+      }
+    }
+    tax = Number(tax.toFixed(2))
+    
+    // Calculate average tax percentage for display (weighted by item value)
+    const displayTaxPercentage = subtotal > 0 ? (averageTaxPercentage / subtotal) * 100 : 0
+    
+    const total = subtotal + tax;
+
     res.status(200).json({
       cartItems: user.userCart,
       deliveryAddress: user.deliveryAddress || null,
-      subtotal: user.cartValue || 0,
-      tax: Number((user.cartValue * 0.08).toFixed(2)),
+      subtotal,
+      tax,
+      taxPercentage: Number(displayTaxPercentage.toFixed(2)), // Return as percentage (8 instead of 0.08)
       shipping: "FREE",
-      total: user.cartValue ? (user.cartValue * 1.08).toFixed(2) : 0
+      total: Number(total.toFixed(2))
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
