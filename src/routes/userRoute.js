@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const {signup, login, forgotPassword, resetPassword, logout, protect, checkTokenStatus, upsertDeliveryAddress, getDeliveryAddress, getProfile, updateProfile, updateProfilePicture, addFeedback, getUserFeedbacks, getAllFeedbacks} = require('../controller/userController')
+const {signup, login, forgotPassword, resetPassword, logout, protect, checkTokenStatus, upsertDeliveryAddress, getDeliveryAddress, getProfile, updateProfile, updateProfilePicture, addFeedback, getUserFeedbacks, getAllFeedbacks, deleteFeedback} = require('../controller/userController')
 const {upload} = require('../helper/multer.js');
 
 router.post('/signup', signup);
@@ -17,6 +17,7 @@ router.put("/profile/picture", protect, upload.single("profilePicture"), updateP
 router.post("/feedback", protect, addFeedback);
 router.get("/feedback/my-feedbacks", protect, getUserFeedbacks);
 router.get("/feedback/all", getAllFeedbacks);
+router.delete("/feedback/:feedbackId", protect, deleteFeedback);
 
 
 

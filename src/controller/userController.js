@@ -585,4 +585,41 @@ const getAllFeedbacks = async (req, res) => {
   }
 };
 
-module.exports = { signup, login, forgotPassword, resetPassword, logout, protect, checkTokenStatus, upsertDeliveryAddress, getDeliveryAddress, getProfile, updateProfile, updateProfilePicture, addFeedback, getUserFeedbacks, getAllFeedbacks };
+// Delete User Feedback
+const deleteFeedback = async (req, res) => {
+  try {
+    const { feedbackId } = req.params;
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      logger.warn("Delete feedback failed: User not found");
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const feedback = await Feedback.findById(feedbackId);
+    
+    if (!feedback) {
+      logger.warn(`Delete feedback failed: Feedback not found - ${feedbackId}`);
+      return res.status(404).json({ message: "Feedback not found" });
+    }
+
+    // Verify that the feedback belongs to the user
+    if (feedback.userId.toString() !== user._id.toString()) {
+      logger.warn(`Delete feedback failed: Unauthorized access attempt - User: ${user._id}, Feedback: ${feedbackId}`);
+      return res.status(403).json({ message: "You are not authorized to delete this feedback" });
+    }
+
+    await Feedback.findByIdAndDelete(feedbackId);
+
+    logger.info(`Feedback deleted successfully: ${feedbackId} by user: ${user.emailId}`);
+    res.status(200).json({
+      success: true,
+      message: "Feedback deleted successfully",
+    });
+  } catch (error) {
+    logger.error(`Delete feedback error: ${error.message}`);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+module.exports = { signup, login, forgotPassword, resetPassword, logout, protect, checkTokenStatus, upsertDeliveryAddress, getDeliveryAddress, getProfile, updateProfile, updateProfilePicture, addFeedback, getUserFeedbacks, getAllFeedbacks, deleteFeedback };
