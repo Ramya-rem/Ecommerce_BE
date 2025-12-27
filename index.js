@@ -18,7 +18,10 @@ mongoose.connect(process.env.DBURL, {
 
 
 app.use(cors({
-    origin: "http://localhost:5173",
+    origin: [
+        "http://localhost:5173",
+        "https://ecommerce-fe-z6tp.onrender.com"
+    ],
     credentials: true,
 }));
 app.use(express.json());
