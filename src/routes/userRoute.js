@@ -7,7 +7,7 @@ router.post('/signup', signup);
 router.post('/login', login);
 router.post('/forgotPassword', forgotPassword);
 router.post('/resetPassword/:token', resetPassword);
-router.post('/logout', logout);
+router.get('/logout', logout);
 router.get('/check-token', checkTokenStatus);
 router.post("/delivery-address", protect, upsertDeliveryAddress);
 router.get("/get-deliveryaddress", protect, getDeliveryAddress);
